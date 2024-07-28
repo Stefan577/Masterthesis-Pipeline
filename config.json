@@ -1,0 +1,131 @@
+{
+  "strategies_names": [
+    "Random_1",
+    "Distance_1",
+    "OW",
+    "T-wise_2"
+  ],
+  "alpha": 0.1,
+  "nfp": "fixed-energy",
+  "strategies": {
+    "OW": {
+      "train": {
+        "binary": "twise",
+        "numeric": false,
+        "params": {
+          "t": 1
+        }
+      },
+      "calib": 25,
+      "test": 400
+    },
+    "T-wise_2": {
+      "train": {
+        "binary": "twise",
+        "numeric": false,
+        "params": {
+          "t": 2
+        }
+      },
+      "calib": 25,
+      "test": 400
+    },
+    "Random_1": {
+      "train": {
+        "binary": "random",
+        "params": {
+          "numConfigs": 15,
+          "sampleSize": 15
+        }
+      },
+      "calib": 25,
+      "test": 400
+    },
+    "Distance_1": {
+      "train": {
+        "binary": "distance-based",
+        "params": {
+          "numConfigs": 15
+        }
+      },
+      "calib": 25,
+      "test": 400
+    },
+    "T-wise_3-Plackettburman": {
+      "train": {
+        "binary": "twise",
+        "numeric": "plackettburman",
+        "params": {
+          "t": 3,
+          "measurements": 4,
+          "level": 3
+        }
+      },
+      "calib": 25,
+      "test": 400
+    },
+    "Random_1-num": {
+      "train": {
+        "binary": "random",
+        "params": {
+          "numConfigs": 39,
+          "sampleSize": 39
+        }
+      },
+      "calib": 25,
+      "test": 400
+    }
+  },
+  "METHODS": [
+    [
+      "cqr",
+      "lin_quant",
+      null
+    ],
+    [
+      "cqr",
+      "lgbm_quant",
+      null
+    ],
+    [
+      "cv_plus",
+      "lin_lasso",
+      null
+    ],
+    [
+      "jackknife_plus",
+      "lin_lasso",
+      null
+    ],
+    [
+      "cv_plus",
+      "cart",
+      null
+    ],
+    [
+      "jackknife_plus",
+      "cart",
+      null
+    ],
+    [
+      "cv_plus",
+      "rf",
+      null
+    ],
+    [
+      "jackknife_plus",
+      "rf",
+      null
+    ],
+    [
+      "cv_plus",
+      "kr",
+      null
+    ],
+    [
+      "jackknife_plus",
+      "kr",
+      null
+    ]
+  ]
+}

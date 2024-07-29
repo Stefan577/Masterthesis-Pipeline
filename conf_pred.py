@@ -14,7 +14,7 @@ from sklearn.ensemble import BaggingRegressor
 from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.kernel_ridge import KernelRidge
-from sklearn.model_selection import GridSearchCV, train_test_split, KFold, RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV, train_test_split, KFold
 from sklearn.metrics import mean_absolute_percentage_error, make_scorer
 from sklearn.linear_model import LinearRegression, QuantileRegressor, Lasso
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
@@ -24,7 +24,6 @@ from lightgbm import LGBMRegressor
 from mapie.conformity_scores import GammaConformityScore, AbsoluteConformityScore
 from mapie.regression import MapieQuantileRegressor, MapieRegressor
 from mapie.subsample import Subsample
-
 
 def activate_logging(logs_to_artifact):
     with open("logs.txt", "w"):
@@ -41,7 +40,6 @@ def activate_logging(logs_to_artifact):
         handlers=[RichHandler()],
     )
 
-
 estimators = {
     "svr": SVR,
     "cart": DecisionTreeRegressor,
@@ -54,57 +52,56 @@ estimators = {
 tuning_params = {
     "svr": {
         "kernel": ["linear", "poly", "rbf"],
-        "C": [0.001, 0.01, 0.1, 1, 10, 100, 500, 750, 250, 1000.0],
-        "gamma": [0.001, 0.01, 0.1, 0.005, 0.05, 0.5, 0.25, 0.025, 0.075, 1.0],
-        "epsilon": [0.001, 0.01, 0.1, 0.5, 1.0],
+        "C": uniform(0.001, 1000),
+        "gamma": uniform(0.001, 1.0),
+        "epsilon": uniform(0.001, 1.0),
     },
     "cart": {
-        "min_samples_split": [],
-        "min_samples_leaf": [],
-        "ccp_alpha": [0.000001, 0.00001, 0.0001, 0.001, 0.01],
+        "min_samples_split": randint(2, 20),
+        "min_samples_leaf": randint(1, 10),
+        "ccp_alpha": uniform(0.000001, 0.01),
         "random_state": [1],
     },
     "rf": {
-        "max_features": [],
-        "n_estimators": list(range(2, 30)),
+        "max_features": randint(2, 20),
+        "n_estimators": randint(2, 30),
     },
     "knn": {
-        "n_neighbors": list(range(2, 21)),
+        "n_neighbors": randint(2, 21),
         "weights": ["distance", "uniform"],
         "algorithm": ["auto", "ball_tree", "kd_tree", "brute"],
-        "p": list(range(1, 6)),
+        "p": randint(1, 6),
     },
     "kr": {
         "kernel": ["poly", "rbf", "linear"],
-        "alpha": [0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 0.5, 0.05],
-        "degree": list(range(1, 6)),
-        "gamma": [0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 0.5, 0.05],
+        "alpha": uniform(0.000001, 0.5),
+        "degree": randint(1, 6),
+        "gamma": uniform(0.000001, 0.5),
     },
     "bagging": {
         "base_estimator": [
             DecisionTreeRegressor(min_samples_leaf=i) for i in range(1, 11)
         ],
-        "n_estimators": list(range(2, 21)),
+        "n_estimators": randint(2, 21),
     },
     "lin": {
         "poly__degree": [1]
     },
     "lin_lasso": {
-        "poly__degree": [1, 2, 3, 4],
-        "lasso__alpha": [0.0001, 0.001, 0.01, 0.1, 1, 10]
+        "poly__degree": randint(1, 5),
+        "lasso__alpha": uniform(0.0001, 10)
     },
     "lin_quant": {
-        "poly__degree": list(range(1, 4))
+        "poly__degree": randint(1, 4)
     },
     "lgbm_quant": {
-        "num_leaves": [10, 20, 30, 40, 50],
+        "num_leaves": randint(10, 50),
         "max_depth": [-1, 3, 5, 10],
-        "n_estimators": [2, 3, 4, 5, 10, 20],
-        "learning_rate": [0.05, 0.1, 0.15, 0.2, 0.5, 0.9],
+        "n_estimators": randint(2, 20),
+        "learning_rate": uniform(0.05, 0.85),
         "verbose": [-1]
     }
 }
-
 
 def _make_pred_artifact(pred, test_y: pd.Series):
     prediction = pd.concat([pd.Series(pred[0]), pd.Series(pred[1][:, 0, 0].T), pd.Series(pred[1][:, 1, 0].T), test_y],
@@ -112,20 +109,16 @@ def _make_pred_artifact(pred, test_y: pd.Series):
     prediction.columns = ["predicted", "interval_min", "interval_max", "measured"]
     return prediction
 
-
 def create_param_grid(method, n_features):
     param_space = tuning_params[method]
 
     if method == "cart":
-        param_space["min_samples_split"] = list(range(2, n_features))
-        param_space["min_samples_leaf"] = [
-            round(1 / 3 * minsplit) for minsplit in param_space["min_samples_split"]
-        ]
+        param_space["min_samples_split"] = randint(2, n_features)
+        param_space["min_samples_leaf"] = randint(1, round(1 / 3 * n_features))
     elif method == "rf":
-        param_space["max_features"] = list(range(2, n_features))
+        param_space["max_features"] = randint(2, n_features)
 
     return param_space
-
 
 STRATEGIES = {
     "jackknife": {"method": "base", "cv": -1},
@@ -135,7 +128,6 @@ STRATEGIES = {
     "jackknife_plus_ab": {"method": "plus", "cv": Subsample(n_resamplings=50)},
     "cqr": {"method": "quantile", "cv": "split"},
 }
-
 
 def cplearning(
         method: str = "cart",
@@ -214,29 +206,26 @@ def cplearning(
     k = 10 if len(train_x) > 10 else 9
 
     # generate experiment
-    selection = GridSearchCV(
+    selection = RandomizedSearchCV(
         model,
         param_space,
         n_jobs=-1,
         verbose=1,
         cv=k,
         scoring=make_scorer(mean_absolute_percentage_error, greater_is_better=False),
+        n_iter=100,  # specify number of iterations for random search
+        random_state=random_state
     )
 
     # Scale Data
 
     scaler_train = StandardScaler()
-    #scaler_calib = StandardScaler()
-    #scaler_test = StandardScaler()
-
     scaler_train.fit(train_x)
     train_x = scaler_train.transform(train_x)
 
     if strategy == "cqr":
-        # scaler_calib.fit(calib_x)
         calib_x = scaler_train.transform(calib_x)
 
-    # scaler_test.fit(test_x)
     test_x = scaler_train.transform(test_x)
 
     with mlflow.start_run() as run:
@@ -247,7 +236,7 @@ def cplearning(
             with parallel_backend("threading"):
                 selection.fit(train_x, train_y)
 
-            logging.info(f"Finished Grid Search, Start Conformal Prediction")
+            logging.info(f"Finished Random Search, Start Conformal Prediction")
             if strategy == "cqr":
                 estimator = selection.best_estimator_
 
@@ -304,5 +293,4 @@ def cplearning(
             if logs_to_artifact:
                 mlflow.log_artifact("logs.txt", "")
 
-    # prediction[0] = scaler_y.inverse_transform(prediction[0])
     return prediction
